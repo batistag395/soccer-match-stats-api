@@ -8,5 +8,5 @@ import java.util.List;
 public interface TeamRepository extends JpaRepository<Team, Long> {
     List<Team> findByName(String name);
     List<Team> findByState(String state);
-    List<Team> findByStatusActive(boolean active);
+    List<Team> findByStatusActive(boolean isActive);
 }
