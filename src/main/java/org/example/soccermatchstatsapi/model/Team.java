@@ -27,5 +27,5 @@ public class Team {
     private OffsetDateTime creationDate;
 
     @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
-    private boolean statusActive = true;
+    private boolean isActive = true;
 }
