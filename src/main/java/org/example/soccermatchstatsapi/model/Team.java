@@ -25,4 +25,7 @@ public class Team {
     @NotBlank(message = "The creation date field is required.")
     @PastOrPresent(message = "The creation date must be in the past or present.")
     private OffsetDateTime creationDate;
+
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    private boolean statusActive = true;
 }

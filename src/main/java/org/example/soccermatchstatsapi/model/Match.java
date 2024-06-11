@@ -38,5 +38,5 @@ public class Match {
     @NotBlank
     @ManyToOne
     @JoinColumn(name = "stadium_id", nullable = false)
-    private Stadium localStadium;
+    private Stadium stadium;
 }
