@@ -18,8 +18,7 @@ public class Team {
     private String name;
 
     @NotBlank(message = "The state field is required.")
-    @Size(min = 2, max = 2, message = "The state field required a max length of 100.")
-    @Column(unique = true)
+    @Size(min = 2, max = 2, message = "The state field requires a length of 2.")
     private String state;
 
     @NotBlank(message = "The creation date field is required.")
