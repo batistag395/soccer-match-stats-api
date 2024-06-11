@@ -1,4 +1,4 @@
-package org.example.soccermatchstatsapi.model.repository;
+package org.example.soccermatchstatsapi.repository;
 
 import org.example.soccermatchstatsapi.model.Match;
 import org.example.soccermatchstatsapi.model.Stadium;
