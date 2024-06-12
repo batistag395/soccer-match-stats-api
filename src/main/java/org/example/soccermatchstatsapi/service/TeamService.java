@@ -2,14 +2,17 @@ package org.example.soccermatchstatsapi.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.AllArgsConstructor;
-import org.apache.coyote.BadRequestException;
 import org.example.soccermatchstatsapi.interfaces.TeamInterface;
+import org.example.soccermatchstatsapi.model.Match;
 import org.example.soccermatchstatsapi.model.State;
 import org.example.soccermatchstatsapi.model.Team;
+import org.example.soccermatchstatsapi.repository.MatchRepository;
+import org.example.soccermatchstatsapi.repository.StateRepository;
 import org.example.soccermatchstatsapi.repository.TeamRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -19,13 +22,27 @@ import java.util.stream.Collectors;
 public class TeamService implements TeamInterface {
 
     private TeamRepository teamRepository;
+    private StateRepository stateRepository;
+    private MatchRepository matchRepository;
     @Override
     public void createTeam(Team team) {
-//        Team thisTeamExists = teamRepository.findByNameAndState(team.getName(), team.getState());
-//        if (thisTeamExists == null && ) {
-//
-//        }
-
+        if(team.getName() == null || team.getState() == null || team.getCreationDate() == null){
+            throw new IllegalArgumentException("Requered data is missing.");
+        }
+        if(team.getName().length() < 2){
+            throw new IllegalArgumentException("Team name must be at least 2 characters.");
+        }
+        Optional<State> state = stateRepository.findByName(team.getState().getStateAbbreviation());
+        if(state.isEmpty()){
+            throw new IllegalArgumentException("Team state is not belong for Brazil.");
+        }
+        Optional<Team> thisTeamExists = teamRepository.findByNameAndState(team.getName(), team.getState());
+        if (thisTeamExists.isPresent()) {
+            throw new IllegalArgumentException("Team already exists.");
+        }
+        if(team.getCreationDate().isAfter(LocalDate.now())){
+            throw new IllegalArgumentException("Team creation date is incorrect.");
+        }
         teamRepository.save(team); ;
     }
 
@@ -33,17 +50,38 @@ public class TeamService implements TeamInterface {
     public void updateTeam(long id, Team team) {
         Optional<Team> optionalTeam = teamRepository.findById(id);
         if (optionalTeam.isPresent()) {
+            if(!team.getName().isEmpty() && !team.getState().getStateAbbreviation().isEmpty()){
+                Optional<Team> teamVerificationData = teamRepository.findByNameAndState(team.getName(), team.getState());
+                if (teamVerificationData.isPresent()) {
+                    throw new IllegalArgumentException("Team already exists.");
+                }
+            }
             Team updatedTeam = optionalTeam.get();
-            if(team.getName() != null && team.getName().length() <= 2){
-                updatedTeam.setName(team.getName());
+            if(team.getName() != null && team.getName().length() < 2){
+                throw new IllegalArgumentException("Team name must be at least 2 characters.");
             }
             if(team.getState() != null){
-                updatedTeam.setState(team.getState());
+                Optional<State> optionalState = stateRepository.findByName(team.getState().getStateAbbreviation());
+                if(optionalState.isPresent()){
+                    updatedTeam.setState(team.getState());
+                }else{
+                    throw new IllegalArgumentException("Team state is not belong for Brazil or doesnt exist..");
+                }
             }
             if(team.getCreationDate() != null && !team.getCreationDate().isAfter(LocalDate.now())){
-                updatedTeam.setCreationDate(team.getCreationDate());
+                List<Match> matchFound = matchRepository.findByTeam(updatedTeam).stream()
+                        .filter(creationData -> creationData.getMatchDate().isBefore(OffsetDateTime.from(team.getCreationDate())))
+                        .toList();
+                if(!matchFound.isEmpty()){
+                    throw new IllegalArgumentException("Creation date is incorrect, because is after a match date of the team.");
+                }
             }
+            updatedTeam.setName(team.getName());
+            updatedTeam.setCreationDate(team.getCreationDate());
+            updatedTeam.setState(team.getState());
             teamRepository.save(updatedTeam);
+        }else{
+            throw new IllegalArgumentException("Team not found.");
         }
     }
 
