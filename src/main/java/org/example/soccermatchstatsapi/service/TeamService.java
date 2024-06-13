@@ -2,13 +2,14 @@ package org.example.soccermatchstatsapi.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.AllArgsConstructor;
+import org.example.soccermatchstatsapi.enums.StateEnum;
 import org.example.soccermatchstatsapi.interfaces.TeamInterface;
 import org.example.soccermatchstatsapi.model.Match;
-import org.example.soccermatchstatsapi.model.State;
 import org.example.soccermatchstatsapi.model.Team;
 import org.example.soccermatchstatsapi.repository.MatchRepository;
-import org.example.soccermatchstatsapi.repository.StateRepository;
 import org.example.soccermatchstatsapi.repository.TeamRepository;
+import org.example.soccermatchstatsapi.specification.TeamSpecifications;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -16,13 +17,13 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @AllArgsConstructor
 @Service
 public class TeamService implements TeamInterface {
 
     private TeamRepository teamRepository;
-    private StateRepository stateRepository;
     private MatchRepository matchRepository;
     @Override
     public void createTeam(Team team) {
@@ -32,16 +33,17 @@ public class TeamService implements TeamInterface {
         if(team.getName().length() < 2){
             throw new IllegalArgumentException("Team name must be at least 2 characters.");
         }
-        Optional<State> state = stateRepository.findByName(team.getState().getStateAbbreviation());
-        if(state.isEmpty()){
-            throw new IllegalArgumentException("Team state is not belong for Brazil.");
+        boolean stateExists = Stream.of(StateEnum.values())
+                .anyMatch(estado -> estado.getSigla().equals(team.getState().toUpperCase()));
+        if(!stateExists){
+            throw new IllegalArgumentException("Team state doesnt belong to Brazil.");
         }
-        Optional<Team> thisTeamExists = teamRepository.findByNameAndState(team.getName(), team.getState());
-        if (thisTeamExists.isPresent()) {
-            throw new IllegalArgumentException("Team already exists.");
-        }
+        Optional<Team> thisTeamExists = teamRepository.findByNameAndStateIgnoreCase(team.getName(), team.getState());
         if(team.getCreationDate().isAfter(LocalDate.now())){
             throw new IllegalArgumentException("Team creation date is incorrect.");
+        }
+        if (thisTeamExists.isPresent()) {
+            throw new IllegalArgumentException("Team already exists.");
         }
         teamRepository.save(team); ;
     }
@@ -50,8 +52,8 @@ public class TeamService implements TeamInterface {
     public void updateTeam(long id, Team team) {
         Optional<Team> optionalTeam = teamRepository.findById(id);
         if (optionalTeam.isPresent()) {
-            if(!team.getName().isEmpty() && !team.getState().getStateAbbreviation().isEmpty()){
-                Optional<Team> teamVerificationData = teamRepository.findByNameAndState(team.getName(), team.getState());
+            if(!team.getName().isEmpty() && !team.getState().isEmpty()){
+                Optional<Team> teamVerificationData = teamRepository.findByNameAndStateIgnoreCase(team.getName(), team.getState());
                 if (teamVerificationData.isPresent()) {
                     throw new IllegalArgumentException("Team already exists.");
                 }
@@ -61,19 +63,23 @@ public class TeamService implements TeamInterface {
                 throw new IllegalArgumentException("Team name must be at least 2 characters.");
             }
             if(team.getState() != null){
-                Optional<State> optionalState = stateRepository.findByName(team.getState().getStateAbbreviation());
-                if(optionalState.isPresent()){
+                boolean stateExists = Stream.of(StateEnum.values())
+                        .anyMatch(state -> state.getSigla().equals(team.getState().toUpperCase()));
+                if(stateExists){
                     updatedTeam.setState(team.getState());
                 }else{
-                    throw new IllegalArgumentException("Team state is not belong for Brazil or doesnt exist..");
+                    throw new IllegalArgumentException("Team state doesnt belong to Brazil or doesnt exist..");
                 }
             }
             if(team.getCreationDate() != null && !team.getCreationDate().isAfter(LocalDate.now())){
                 List<Match> matchFound = matchRepository.findByTeam(updatedTeam).stream()
                         .filter(creationData -> creationData.getMatchDate().isBefore(OffsetDateTime.from(team.getCreationDate())))
                         .toList();
-                if(!matchFound.isEmpty()){
-                    throw new IllegalArgumentException("Creation date is incorrect, because is after a match date of the team.");
+                if(!matchFound.isEmpty() && team.getCreationDate().isAfter(LocalDate.now())){
+                    throw new IllegalArgumentException("Creation date is incorrect, because is after a match date of the team..");
+                }
+                if(matchFound.isEmpty() && team.getCreationDate().isAfter(LocalDate.now())){
+                    throw new IllegalArgumentException("Creation date is incorrect, because is on the future.");
                 }
             }
             updatedTeam.setName(team.getName());
@@ -94,10 +100,10 @@ public class TeamService implements TeamInterface {
                 team.setActive(false);
                 teamRepository.save(team);
             }else {
-                throw new EntityNotFoundException("the team with id " + id + " was not found as an active team.");
+                throw new IllegalArgumentException("the team with id " + id + " was not found as an active team.");
             }
         }else {
-            throw new EntityNotFoundException("the team with id " + id + " was not found.");
+            throw new IllegalArgumentException("the team with id " + id + " was not found.");
         }
     }
 
@@ -124,33 +130,17 @@ public class TeamService implements TeamInterface {
     }
 
     @Override
-    public List<Team> getTeamByName(String teamName) {
-        List<Team> teamList = teamRepository.findByName(teamName).stream()
-                .filter(Team::isActive)
-                .toList();
-        if(teamList.isEmpty()){
-            throw new EntityNotFoundException("the team with name " + teamName + " was not found");
+    public List<Team> getTeamsByNameAndStateAndStatusActive(String name, String state, Boolean isActive){
+        Specification<Team> teamFilterSpecifications = Specification.where(null);
+        if (name != null) {
+            teamFilterSpecifications = teamFilterSpecifications.and(TeamSpecifications.hasName(name));
         }
-        return teamList;
-    }
-
-    @Override
-    public List<Team> getTeamByState(State state) {
-        List<Team> teamList = teamRepository.findByState(state).stream()
-                .filter(Team::isActive)
-                .toList();
-        if(teamList.isEmpty()){
-            throw new EntityNotFoundException("the team with state " + state + " was not found");
+        if (state != null) {
+            teamFilterSpecifications = teamFilterSpecifications.and(TeamSpecifications.hasState(state));
         }
-        return teamList;
-    }
-
-    @Override
-    public List<Team> getTeamsByStatusActive(boolean isActive) {
-        List<Team> teamList = teamRepository.findByStatusActive(isActive);
-        if(teamList.isEmpty()){
-            throw new EntityNotFoundException("the team with status " + isActive + " was not found");
+        if (isActive != null) {
+            teamFilterSpecifications = teamFilterSpecifications.and(TeamSpecifications.isActive(isActive));
         }
-        return teamList;
+        return teamRepository.findAll(teamFilterSpecifications);
     }
 }

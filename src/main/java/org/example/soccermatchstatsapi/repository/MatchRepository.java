@@ -10,7 +10,7 @@ import java.util.List;
 public interface MatchRepository extends JpaRepository<Match, Long> {
     List<Match> findByHomeTeam(Team homeTeam);
     List<Match> findByAwayTeam(Team awayTeam);
-    List<Match> finByStadium(Stadium stadium );
+    List<Match> findByStadium(Stadium stadium );
 
     default List<Match> findByTeam(Team team) {
         List<Match> homeMatches = findByHomeTeam(team);

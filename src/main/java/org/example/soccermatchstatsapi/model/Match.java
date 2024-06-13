@@ -10,6 +10,7 @@ import java.time.OffsetDateTime;
 
 @Data
 @Entity
+@Table(name = "`match`")
 public class Match {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
