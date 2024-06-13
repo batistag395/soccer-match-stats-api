@@ -35,7 +35,7 @@ public class StadiumService implements StadiumInterface {
     public void updateStadium(long id, Stadium stadium) {
         Optional<Stadium> existingStadium = stadiumRepository.findById(id);
         if(existingStadium.isPresent()) {
-            if(stadium.getName() != null) {
+            if(stadium.getName() != null || !stadium.getName().isEmpty()) {
                 if(stadium.getName().length() < 3) {
                     throw new IllegalArgumentException("Stadium name cannot be less than 3 characters");
                 }
@@ -46,7 +46,7 @@ public class StadiumService implements StadiumInterface {
                 existingStadium.get().setName(stadium.getName());
                 stadiumRepository.save(existingStadium.get());
             }else{
-                throw new IllegalArgumentException("Stadium name cannot be null");
+                throw new IllegalArgumentException("Stadium name cannot be null or empty");
             }
         }else{
             throw new IllegalArgumentException("Stadium does not exist");
