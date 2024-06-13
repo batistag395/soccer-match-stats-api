@@ -21,7 +21,6 @@ public class Team {
     @Size(min = 2, max = 2, message = "The state field requires a length of 2.")
     private String state;
 
-    @NotBlank(message = "The creation date field is required.")
     @PastOrPresent(message = "The creation date must be in the past or present.")
     private LocalDate creationDate;
 

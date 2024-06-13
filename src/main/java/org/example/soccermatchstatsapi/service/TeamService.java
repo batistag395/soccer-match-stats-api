@@ -2,6 +2,7 @@ package org.example.soccermatchstatsapi.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.AllArgsConstructor;
+import org.example.soccermatchstatsapi.dto.TeamDto;
 import org.example.soccermatchstatsapi.enums.StateEnum;
 import org.example.soccermatchstatsapi.interfaces.TeamInterface;
 import org.example.soccermatchstatsapi.model.Match;
@@ -27,7 +28,9 @@ public class TeamService implements TeamInterface {
     private MatchRepository matchRepository;
     @Override
     public void createTeam(Team team) {
-        if(team.getName() == null || team.getState() == null || team.getCreationDate() == null){
+        if(team.getName() == null || team.getName().isEmpty() ||
+            team.getState() == null || team.getState().isEmpty() ||
+            team.getCreationDate() == null){
             throw new IllegalArgumentException("Requered data is missing.");
         }
         if(team.getName().length() < 2){
@@ -49,11 +52,13 @@ public class TeamService implements TeamInterface {
     }
 
     @Override
-    public void updateTeam(long id, Team team) {
+    public void updateTeam(long id, TeamDto team) {
         Optional<Team> optionalTeam = teamRepository.findById(id);
         if (optionalTeam.isPresent()) {
-            if(!team.getName().isEmpty() && !team.getState().isEmpty()){
-                Optional<Team> teamVerificationData = teamRepository.findByNameAndStateIgnoreCase(team.getName(), team.getState());
+            if(team.getName() != null && !team.getName().isEmpty()){
+                String stateToCheck = team.getState() == null ? optionalTeam.get().getState() : team.getState();
+                Optional<Team> teamVerificationData = teamRepository.findByNameAndStateIgnoreCase(team.getName(), optionalTeam.get().getState());
+
                 if (teamVerificationData.isPresent()) {
                     throw new IllegalArgumentException("Team already exists.");
                 }
@@ -62,7 +67,7 @@ public class TeamService implements TeamInterface {
             if(team.getName() != null && team.getName().length() < 2){
                 throw new IllegalArgumentException("Team name must be at least 2 characters.");
             }
-            if(team.getState() != null){
+            if(team.getState() != null && !team.getState().isEmpty()){
                 boolean stateExists = Stream.of(StateEnum.values())
                         .anyMatch(state -> state.getSigla().equals(team.getState().toUpperCase()));
                 if(stateExists){
@@ -82,9 +87,9 @@ public class TeamService implements TeamInterface {
                     throw new IllegalArgumentException("Creation date is incorrect, because is on the future.");
                 }
             }
-            updatedTeam.setName(team.getName());
-            updatedTeam.setCreationDate(team.getCreationDate());
-            updatedTeam.setState(team.getState());
+            updatedTeam.setName(team.getName() == null ? optionalTeam.get().getName() : team.getName());
+            updatedTeam.setCreationDate(team.getCreationDate() == null ? optionalTeam.get().getCreationDate() : team.getCreationDate());
+            updatedTeam.setState(team.getState() == null ? optionalTeam.get().getState() : team.getState());
             teamRepository.save(updatedTeam);
         }else{
             throw new IllegalArgumentException("Team not found.");
@@ -124,7 +129,7 @@ public class TeamService implements TeamInterface {
                 .filter(Team::isActive)
                 .collect(Collectors.toList());
         if(teamList.isEmpty()){
-            throw new EntityNotFoundException("the team list is empty");
+            throw new IllegalArgumentException("the team list is empty");
         }
         return teamList;
     }
