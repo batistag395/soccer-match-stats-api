@@ -31,10 +31,10 @@ public class Match {
     private OffsetDateTime matchDate;
 
     @NotNull
-    private int homeTeamScore;
+    private Integer homeTeamScore;
 
     @NotNull
-    private int awayTeamScore;
+    private Integer awayTeamScore;
 
     @NotBlank
     @ManyToOne

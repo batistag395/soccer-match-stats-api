@@ -77,7 +77,7 @@ public class TeamService implements TeamInterface {
                 }
             }
             if(team.getCreationDate() != null && !team.getCreationDate().isAfter(LocalDate.now())){
-                List<Match> matchFound = matchRepository.findByTeam(updatedTeam).stream()
+                List<Match> matchFound = matchRepository.findById(updatedTeam.getId()).stream()
                         .filter(creationData -> creationData.getMatchDate().isBefore(OffsetDateTime.from(team.getCreationDate())))
                         .toList();
                 if(!matchFound.isEmpty() && team.getCreationDate().isAfter(LocalDate.now())){
@@ -99,14 +99,10 @@ public class TeamService implements TeamInterface {
     @Override
     public void deleteTeam(long id) {
         Optional<Team> teamToUpdate = teamRepository.findById(id);
-        if (teamToUpdate.isPresent()) {
+        if (teamToUpdate.isPresent() && teamToUpdate.get().isActive()) {
             Team team = teamToUpdate.get();
-            if(team.isActive()){
-                team.setActive(false);
-                teamRepository.save(team);
-            }else {
-                throw new IllegalArgumentException("the team with id " + id + " was not found as an active team.");
-            }
+            team.setActive(false);
+            teamRepository.save(team);
         }else {
             throw new IllegalArgumentException("the team with id " + id + " was not found.");
         }
