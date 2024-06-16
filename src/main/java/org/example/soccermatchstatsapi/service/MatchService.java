@@ -18,13 +18,47 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class Matchservice implements MatchInterface {
+public class MatchService implements MatchInterface {
     private MatchRepository matchRepository;
     private TeamRepository teamRepository;
     private StadiumRepository stadiumRepository;
     @Override
     public void createMatch(Match match) {
+        if(
+                match.getHomeTeam() != null &&
+                match.getAwayTeam() != null &&
+                match.getMatchDate() != null &&
+                match.getStadium() != null &&
+                match.getHomeTeamScore() != null &&
+                match.getAwayTeamScore() != null
+        ){
+            if(match.getHomeTeam().equals(match.getAwayTeam())){
+                throw new IllegalArgumentException("away and home team cannot be the same.");
+            }
+            if(match.getMatchDate().isAfter(OffsetDateTime.now())){
+                throw new IllegalArgumentException("Date cannot be beyond the present");
+            }
+            if(match.getHomeTeamScore() < 0 || match.getAwayTeamScore() < 0){
+                throw new IllegalArgumentException("Team score cannot be negative.");
+            }
 
+            try {
+                teamExists(match.getAwayTeam().getId());
+                teamExists(match.getHomeTeam().getId());
+                teamIsActive(match.getHomeTeam().getId());
+                teamIsActive(match.getAwayTeam().getId());
+                stadiumExists(match.getStadium().getId());
+                matchDateIsBeforeTeamCreationDate(match);
+                matchDateHasConflict(match);
+                verifyStadiumHasMatch(match);
+            }catch (IllegalArgumentException e){
+                throw e;
+            }
+            matchRepository.save(match);
+
+        }else{
+            throw new IllegalArgumentException("Required data is missing.");
+        }
     }
 
     @Override
@@ -72,14 +106,16 @@ public class Matchservice implements MatchInterface {
             if(match.getStadium()!= null){
                 try {
                     stadiumExists(match.getStadium().getId());
-                    verifyStadiumHasMatch(id, match.getStadium(), match.getMatchDate());
+                    verifyStadiumHasMatch(match);
                 }catch (IllegalArgumentException e){
                     throw new IllegalArgumentException(e.getMessage());
                 }
             }
-            if(match.getHomeTeamScore() < 0 || match.getAwayTeamScore() < 0){
-                throw  new IllegalArgumentException("Scores cannot be negative.");
+            if (match.getHomeTeamScore() != null && match.getHomeTeamScore() < 0 ||
+                    match.getAwayTeamScore() != null && match.getAwayTeamScore() < 0) {
+                throw new IllegalArgumentException("Scores cannot be negative.");
             }
+
             if(match.getMatchDate() != null && match.getMatchDate().isAfter(OffsetDateTime.now())){
                 throw new IllegalArgumentException("Match dates cannot be after current day.");
             }
@@ -155,10 +191,10 @@ public class Matchservice implements MatchInterface {
             throw new IllegalArgumentException("The home team and away team cannot be the same in a match.");
         }
     }
-    private void verifyStadiumHasMatch(long id, Stadium stadium, OffsetDateTime matchDate){
-        Optional<Match> match = matchRepository.findById(id);
-        boolean stadiumHasMatchInthisDate = match.stream()
-                .anyMatch(dt -> dt.getStadium().equals(stadium ) && dt.getMatchDate().toLocalDate().isEqual(matchDate.toLocalDate()));
+    private void verifyStadiumHasMatch(Match match){
+        Optional<Match> matchOptional = matchRepository.findById(match.getId());
+        boolean stadiumHasMatchInthisDate = matchOptional.stream()
+                .anyMatch(dt -> dt.getStadium().equals(match.getStadium()) && dt.getMatchDate().toLocalDate().isEqual(match.getMatchDate().toLocalDate()));
         if(!stadiumHasMatchInthisDate){
             throw new IllegalArgumentException("Has game at this stadium on this date.");
         }

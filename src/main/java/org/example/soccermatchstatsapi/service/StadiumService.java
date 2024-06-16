@@ -1,10 +1,8 @@
 package org.example.soccermatchstatsapi.service;
 
 import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.example.soccermatchstatsapi.interfaces.StadiumInterface;
 import org.example.soccermatchstatsapi.model.Stadium;
-import org.example.soccermatchstatsapi.model.Team;
 import org.example.soccermatchstatsapi.repository.StadiumRepository;
 import org.springframework.stereotype.Service;
 
