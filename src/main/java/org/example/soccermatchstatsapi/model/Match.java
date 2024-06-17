@@ -16,12 +16,12 @@ public class Match {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @NotBlank
+    @NotNull
     @ManyToOne
     @JoinColumn(name = "home_team_id", nullable = false)
     private Team homeTeam;
 
-    @NotBlank
+    @NotNull
     @ManyToOne
     @JoinColumn(name = "away_team_id", nullable = false)
     private Team awayTeam;
@@ -36,7 +36,7 @@ public class Match {
     @NotNull
     private Integer awayTeamScore;
 
-    @NotBlank
+    @NotNull
     @ManyToOne
     @JoinColumn(name = "stadium_id", nullable = false)
     private Stadium stadium;

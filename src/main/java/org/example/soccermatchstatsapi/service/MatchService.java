@@ -3,7 +3,6 @@ package org.example.soccermatchstatsapi.service;
 import lombok.AllArgsConstructor;
 import org.example.soccermatchstatsapi.interfaces.MatchInterface;
 import org.example.soccermatchstatsapi.model.Match;
-import org.example.soccermatchstatsapi.model.Stadium;
 import org.example.soccermatchstatsapi.model.Team;
 import org.example.soccermatchstatsapi.repository.MatchRepository;
 import org.example.soccermatchstatsapi.repository.StadiumRepository;
@@ -36,7 +35,7 @@ public class MatchService implements MatchInterface {
                 throw new IllegalArgumentException("away and home team cannot be the same.");
             }
             if(match.getMatchDate().isAfter(OffsetDateTime.now())){
-                throw new IllegalArgumentException("Date cannot be beyond the present");
+                throw new IllegalArgumentException("Date cannot be beyond the current date");
             }
             if(match.getHomeTeamScore() < 0 || match.getAwayTeamScore() < 0){
                 throw new IllegalArgumentException("Team score cannot be negative.");
@@ -48,9 +47,11 @@ public class MatchService implements MatchInterface {
                 teamIsActive(match.getHomeTeam().getId());
                 teamIsActive(match.getAwayTeam().getId());
                 stadiumExists(match.getStadium().getId());
-                matchDateIsBeforeTeamCreationDate(match);
+                matchDateIsBeforeTeamCreationDateWhenCreate(match);
                 matchDateHasConflict(match);
-                verifyStadiumHasMatch(match);
+                if(match.getMatchDate() != null && match.getStadium() != null){
+                    verifyStadiumHasMatch(match);
+                }
             }catch (IllegalArgumentException e){
                 throw e;
             }
@@ -122,7 +123,7 @@ public class MatchService implements MatchInterface {
             if(match.getMatchDate() != null){
                 try {
                     matchDateHasConflict(match);
-                    matchDateIsBeforeTeamCreationDate(match);
+                    matchDateIsBeforeTeamCreationDateWhenUpdate(match);
 
                 }catch (IllegalArgumentException e){
                     throw new IllegalArgumentException(e.getMessage());
@@ -140,7 +141,7 @@ public class MatchService implements MatchInterface {
             throw new IllegalArgumentException("Match not found.");
         }
     }
-    private void matchDateIsBeforeTeamCreationDate(Match match){
+    private void matchDateIsBeforeTeamCreationDateWhenUpdate(Match match){
         Optional<Match> matchOptional = matchRepository.findById(match.getId());
         if(matchOptional.isPresent()){
             boolean dateIsBeforeTheTeamCreationDate1 =
@@ -152,18 +153,39 @@ public class MatchService implements MatchInterface {
                 throw new IllegalArgumentException("Match date cannot be before team creation date.");
             }
         }
-
+    }private void matchDateIsBeforeTeamCreationDateWhenCreate(Match match){
+        boolean dateIsBeforeTheTeamCreationDate1 =
+                (match.getMatchDate().toLocalDate().isBefore(match.getHomeTeam().getCreationDate()) ||
+                        (match.getMatchDate().toLocalDate().isBefore(match.getAwayTeam().getCreationDate())));
+        if(dateIsBeforeTheTeamCreationDate1){
+            throw new IllegalArgumentException("Match date cannot be before team creation date.");
+        }
     }
     private void matchDateHasConflict(Match match){
+        Team homeTeam = match.getHomeTeam();
+        Team awayTeam = match.getAwayTeam();
+        Optional<Match> dbMatch = matchRepository.findById(match.getId());
+        if(dbMatch.isPresent()){
+            if (homeTeam == null) {
+                homeTeam = dbMatch.get().getHomeTeam();
+            } else {
+                homeTeam = match.getHomeTeam();
+            }
+            if (awayTeam == null) {
+                awayTeam = dbMatch.get().getAwayTeam();
+            }
+        }
+
+        Team finalHomeTeam = homeTeam;
+        Team finalAwayTeam = awayTeam;
+
         boolean someTeamPlayedTheMatch = matchRepository.findAll().stream()
                 .filter(dt -> dt.getId() != match.getId())
                 .anyMatch(m ->
-                        ((match.getAwayTeam() != null && m.getHomeTeam().equals(match.getAwayTeam())) ||
-                        (match.getHomeTeam() != null && m.getAwayTeam().equals(match.getHomeTeam())) ||
-                        (match.getHomeTeam() != null && m.getHomeTeam().equals(match.getHomeTeam())) ||
-                        (match.getAwayTeam() != null && m.getAwayTeam().equals(match.getAwayTeam()))) &&
-                        (m.getMatchDate().isAfter(match.getMatchDate().minusHours(48)) &&
-                                m.getMatchDate().isBefore(match.getMatchDate().plusHours(48)))
+                        (m.getHomeTeam().equals(finalHomeTeam) || m.getAwayTeam().equals(finalHomeTeam) ||
+                                m.getHomeTeam().equals(finalAwayTeam) || m.getAwayTeam().equals(finalAwayTeam)) &&
+                                m.getMatchDate().isAfter(match.getMatchDate().minusHours(48)) &&
+                                m.getMatchDate().isBefore(match.getMatchDate().plusHours(48))
                 );
         if(someTeamPlayedTheMatch){
             throw new IllegalArgumentException("Theres hour conflict at the new match date.");
@@ -191,14 +213,22 @@ public class MatchService implements MatchInterface {
             throw new IllegalArgumentException("The home team and away team cannot be the same in a match.");
         }
     }
-    private void verifyStadiumHasMatch(Match match){
-        Optional<Match> matchOptional = matchRepository.findById(match.getId());
+    private void verifyStadiumHasMatch(Match match) {
+        List<Match> matchOptional = matchRepository.findAll();
         boolean stadiumHasMatchInthisDate = matchOptional.stream()
-                .anyMatch(dt -> dt.getStadium().equals(match.getStadium()) && dt.getMatchDate().toLocalDate().isEqual(match.getMatchDate().toLocalDate()));
-        if(!stadiumHasMatchInthisDate){
+                .anyMatch(dt -> (dt.getStadium().equals(match.getStadium())) && dt.getMatchDate().toLocalDate().isEqual(match.getMatchDate().toLocalDate()));
+        if (stadiumHasMatchInthisDate) {
             throw new IllegalArgumentException("Has game at this stadium on this date.");
         }
     }
+//    }private void verifyStadiumHasMatch(Match match){
+//        Optional<Match> matchOptional = matchRepository.findById(match.getId());
+//        boolean stadiumHasMatchInthisDate = matchOptional.stream()
+//                .anyMatch(dt -> dt.getStadium().equals(match.getStadium()) && dt.getMatchDate().toLocalDate().isEqual(match.getMatchDate().toLocalDate()));
+//        if(stadiumHasMatchInthisDate){
+//            throw new IllegalArgumentException("Has game at this stadium on this date.");
+//        }
+//    }
     private void stadiumExists(long id){
         boolean stadiumExists = stadiumRepository.existsById(id);
         if(!stadiumExists){
