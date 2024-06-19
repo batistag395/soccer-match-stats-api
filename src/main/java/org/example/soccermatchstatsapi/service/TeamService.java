@@ -2,7 +2,7 @@ package org.example.soccermatchstatsapi.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.AllArgsConstructor;
-import org.example.soccermatchstatsapi.dto.TeamDto;
+import org.example.soccermatchstatsapi.dto.*;
 import org.example.soccermatchstatsapi.enums.StateEnum;
 import org.example.soccermatchstatsapi.interfaces.TeamInterface;
 import org.example.soccermatchstatsapi.model.Match;
@@ -10,6 +10,8 @@ import org.example.soccermatchstatsapi.model.Team;
 import org.example.soccermatchstatsapi.repository.MatchRepository;
 import org.example.soccermatchstatsapi.repository.TeamRepository;
 import org.example.soccermatchstatsapi.specification.TeamSpecifications;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -131,7 +133,7 @@ public class TeamService implements TeamInterface {
     }
 
     @Override
-    public List<Team> getTeamsByNameAndStateAndStatusActive(String name, String state, Boolean isActive){
+    public TeamPageableDto getTeamsByNameAndStateAndStatusActive(String name, String state, Boolean isActive, Pageable pageable){
         Specification<Team> teamFilterSpecifications = Specification.where(null);
         if (name != null) {
             teamFilterSpecifications = teamFilterSpecifications.and(TeamSpecifications.hasName(name));
@@ -142,6 +144,178 @@ public class TeamService implements TeamInterface {
         if (isActive != null) {
             teamFilterSpecifications = teamFilterSpecifications.and(TeamSpecifications.isActive(isActive));
         }
-        return teamRepository.findAll(teamFilterSpecifications);
+
+        Page<Team> page = teamRepository.findAll(teamFilterSpecifications, pageable);
+        List<TeamDto> listTeam = page.map(this::mapDto).toList();
+
+        return TeamPageableDto.builder()
+                .totalPages(page.getTotalPages())
+                .totalElements(page.getTotalElements())
+                .content(listTeam)
+                .build();
+    }
+
+    private TeamDto mapDto(Team team){
+        return TeamDto.builder()
+                .id(team.getId())
+                .name(team.getName())
+                .state(team.getState())
+                .creationDate(team.getCreationDate())
+                .isActive(team.isActive())
+                .build();
+    }
+    @Override
+    public List<TeamMatchHistoryDto> teamMatchHistory(long id){
+        Optional<Team> teamOptional = teamRepository.findById(id);
+        if(teamOptional.isPresent()){
+            Team team = teamOptional.get();
+            List<Match> matchList = matchRepository.findAll();
+
+            return matchList.stream()
+                    .filter(match -> match.getHomeTeam().equals(team) || match.getAwayTeam().equals(team))
+                    .collect(Collectors.groupingBy(match -> match.getHomeTeam().equals(team) ? match.getAwayTeam() : match.getHomeTeam()))
+                    .entrySet().stream()
+                    .map(entry ->{
+                        Team opponent = entry.getKey();
+                        List<Match> matchAgainstSomeTeam = entry.getValue();
+
+                        long win = matchAgainstSomeTeam.stream().filter(match ->
+                                (match.getHomeTeam().equals(team) && match.getHomeTeamScore() > match.getAwayTeamScore()) ||
+                                        (match.getAwayTeam().equals(team) && match.getAwayTeamScore() > match.getHomeTeamScore()))
+                            .count();
+                        long loss = matchAgainstSomeTeam.stream().filter(match ->
+                                (match.getHomeTeam().equals(team) && match.getHomeTeamScore() < match.getAwayTeamScore()) ||
+                                        (match.getAwayTeam().equals(team) && match.getAwayTeamScore() < match.getHomeTeamScore()))
+                            .count();
+                        long draw = matchAgainstSomeTeam.stream().filter(match ->
+                                match.getHomeTeamScore() == match.getAwayTeamScore())
+                            .count();
+                        int goals_scored =  matchAgainstSomeTeam.stream().mapToInt(match ->
+                                        (match.getHomeTeam().equals(team) ? match.getHomeTeamScore() : match.getAwayTeamScore()))
+                                .sum();
+                        int goals_against =  matchAgainstSomeTeam.stream().mapToInt(match ->
+                                        (match.getHomeTeam().equals(team) ? match.getAwayTeamScore() : match.getHomeTeamScore()))
+                                .sum();
+                        return TeamMatchHistoryDto.builder()
+                                .team(team)
+                                .opponent(opponent)
+                                .win(win)
+                                .loss(loss)
+                                .draw(draw)
+                                .goals_scored(goals_scored)
+                                .goals_against(goals_against)
+                                .build();
+                    }).toList();
+        }else{
+            throw new IllegalArgumentException("Team not found.");
+        }
+    }
+    public TeamMatchHistoryStatsDto findMatchHistoryBetweenTeams(long id_team1, long id_team2){
+        Optional<Team> team1 = teamRepository.findById(id_team1);
+        Optional<Team> team2 = teamRepository.findById(id_team2);
+
+        if(team1.isPresent() && team2.isPresent()){
+            List<Match> matches = matchRepository.findAll();
+            List<Match> matchesBetweenTeams = matches.stream()
+                    .filter(match ->
+                            match.getHomeTeam().getId() == id_team1 && match.getAwayTeam().getId() == id_team2 ||
+                            match.getAwayTeam().getId() == id_team1 && match.getHomeTeam().getId() == id_team2
+                    ).toList();
+            long win_team_1 = matchesBetweenTeams.stream().filter(team ->
+                            (team.getHomeTeam().getId() == id_team1 && team.getHomeTeamScore() > team.getAwayTeamScore()) ||
+                            (team.getAwayTeam().getId() == id_team1 && team.getAwayTeamScore() > team.getHomeTeamScore())).count();
+            long win_team_2 = matchesBetweenTeams.stream().filter(team ->
+                            (team.getHomeTeam().getId() == id_team2 && team.getHomeTeamScore() > team.getAwayTeamScore()) ||
+                            (team.getAwayTeam().getId() == id_team2 && team.getAwayTeamScore() > team.getHomeTeamScore())).count();
+
+
+            long draw = matchesBetweenTeams.stream().filter(team ->
+                    team.getHomeTeamScore() == team.getAwayTeamScore()).count();
+
+            long loss_team_1 = ((matchesBetweenTeams.size() - draw)- win_team_1);
+            long loss_team_2 = ((matchesBetweenTeams.size() - draw) - win_team_2);
+
+            int gols_agains = matchesBetweenTeams.stream().filter(team ->
+                    (team.getHomeTeam().getId() == id_team1)).mapToInt(Match::getAwayTeamScore).sum() +
+                        matchesBetweenTeams.stream().filter(team ->
+                                team.getAwayTeam().getId() ==id_team1).mapToInt(Match::getHomeTeamScore).sum();
+
+            int goals_scored = matchesBetweenTeams.stream().filter(team ->
+                    (team.getHomeTeam().getId() == id_team1)).mapToInt(Match::getHomeTeamScore).sum() +
+                    matchesBetweenTeams.stream().filter(team ->
+                                    (team.getAwayTeam().getId() == id_team1)).mapToInt(Match::getAwayTeamScore).sum();
+
+            TeamStatsDto stats_team_1 = TeamStatsDto.builder()
+                    .team(team1.get())
+                    .win(win_team_1)
+                    .loss(loss_team_1)
+                    .draw(draw)
+                    .goals_scored(goals_scored)
+                    .goals_against(gols_agains)
+                    .build();
+
+            TeamStatsDto stats_team_2 = TeamStatsDto.builder()
+                    .team(team2.get())
+                    .win(win_team_2)
+                    .loss(loss_team_2)
+                    .draw(draw)
+                    .goals_scored(gols_agains)
+                    .goals_against(goals_scored)
+                    .build();
+
+            return TeamMatchHistoryStatsDto.builder()
+                    .matchList(matchesBetweenTeams)
+                    .team1(stats_team_1)
+                    .team2(stats_team_2)
+                    .build();
+        }else {
+            throw new IllegalArgumentException("Team not found.");
+        }
+    }
+
+    @Override
+    public TeamStatsDto teamStats(long id) {
+        Optional<Team> teamOptional = teamRepository.findById(id);
+
+        if(teamOptional.isEmpty()){
+            throw new IllegalArgumentException("Team not found.");
+        }
+
+        Team team = teamOptional.get();
+        List<Match> matches = matchRepository.findAll();
+
+        int wins = (int) matches.stream().filter(match ->
+                (match.getHomeTeam().equals(team) && match.getHomeTeamScore() > match.getAwayTeamScore()) ||
+                        (match.getAwayTeam().equals(team) && match.getAwayTeamScore() > match.getHomeTeamScore())
+        ).count();
+
+        int loss = (int) matches.stream().filter(match ->
+                (match.getHomeTeam().equals(team) && match.getHomeTeamScore() < match.getAwayTeamScore() ||
+                        (match.getAwayTeam().equals(team) && match.getAwayTeamScore() < match.getHomeTeamScore()))
+        ).count();
+
+        int draw = (int) matches.stream().filter(match ->
+                (match.getHomeTeam().equals(team) || match.getAwayTeam().equals(team) &&
+                        (match.getAwayTeamScore() == match.getHomeTeamScore()))
+        ).count();
+
+        int goals_scored = matches.stream().filter(match ->
+                match.getHomeTeam().equals(team)).mapToInt(Match::getHomeTeamScore).sum() +
+                matches.stream().filter(match ->
+                        match.getAwayTeam().equals(team)).mapToInt(Match::getAwayTeamScore).sum();
+
+        int goals_against = matches.stream().filter(match ->
+                match.getHomeTeam().equals(team)).mapToInt(Match::getAwayTeamScore).sum() +
+                matches.stream().filter(match ->
+                        match.getAwayTeam().equals(team)).mapToInt(Match::getHomeTeamScore).sum();
+
+        return TeamStatsDto.builder()
+                .team(team)
+                .win(wins)
+                .loss(loss)
+                .draw(draw)
+                .goals_scored(goals_scored)
+                .goals_against(goals_against)
+                .build();
     }
 }

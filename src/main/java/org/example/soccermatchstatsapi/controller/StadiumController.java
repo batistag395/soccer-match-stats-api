@@ -2,9 +2,11 @@ package org.example.soccermatchstatsapi.controller;
 
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.example.soccermatchstatsapi.dto.StadiumPageableDto;
 import org.example.soccermatchstatsapi.model.Stadium;
 import org.example.soccermatchstatsapi.model.Team;
 import org.example.soccermatchstatsapi.service.StadiumService;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -55,9 +57,10 @@ public class StadiumController {
         }
     }
     @GetMapping("/findAll")
-    public ResponseEntity<List<Stadium>> findAllStadium() {
+    public ResponseEntity<StadiumPageableDto> findAllStadium(Pageable pageable) {
         try {
-            return ResponseEntity.ok(stadiumService.findAllStadiums());
+            StadiumPageableDto stadiumList = stadiumService.findAllStadiums(pageable);
+            return ResponseEntity.ok(stadiumList);
         }catch (IllegalArgumentException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }

@@ -3,8 +3,11 @@ package org.example.soccermatchstatsapi.controller;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.soccermatchstatsapi.dto.MatchPageableDto;
+import org.example.soccermatchstatsapi.dto.TeamStatsDto;
 import org.example.soccermatchstatsapi.model.Match;
 import org.example.soccermatchstatsapi.service.MatchService;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -78,11 +81,12 @@ public class MatchController {
         }
     }
     @GetMapping("/listWithFilters")
-    public ResponseEntity<List<Match>> getMatchByFilter(
+    public ResponseEntity<MatchPageableDto> getMatchByFilter(
             @RequestParam(required = false) String team,
-            @RequestParam(required = false) String stadium
+            @RequestParam(required = false) String stadium,
+            Pageable pageable
     ){
-        List<Match> match = matchService.getMatchesWithFilter(team, stadium);
+        MatchPageableDto match = matchService.getMatchesWithFilter(team, stadium, pageable);
         return ResponseEntity.ok(match);
     }
 }

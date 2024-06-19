@@ -1,9 +1,13 @@
 package org.example.soccermatchstatsapi.service;
 
 import lombok.AllArgsConstructor;
+import org.example.soccermatchstatsapi.dto.StadiumDto;
+import org.example.soccermatchstatsapi.dto.StadiumPageableDto;
 import org.example.soccermatchstatsapi.interfaces.StadiumInterface;
 import org.example.soccermatchstatsapi.model.Stadium;
 import org.example.soccermatchstatsapi.repository.StadiumRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -62,10 +66,22 @@ public class StadiumService implements StadiumInterface {
     }
 
     @Override
-    public List<Stadium> findAllStadiums() {
-        return stadiumRepository.findAll();
-    }
+    public StadiumPageableDto findAllStadiums(Pageable pageable) {
+        Page<Stadium> page = stadiumRepository.findAll(pageable);
 
+        List<StadiumDto> listStadium = page.map(this::mapDto).toList();
+        return StadiumPageableDto.builder()
+                .totalPages(page.getTotalPages())
+                .totalElements(page.getTotalElements())
+                .content(listStadium)
+                .build();
+    }
+    private StadiumDto mapDto(Stadium stadium){
+        return StadiumDto.builder()
+                .id(stadium.getId())
+                .name(stadium.getName())
+                .build();
+    }
     @Override
     public void deleteStadium(long id){
         Optional<Stadium> optionalStadium = stadiumRepository.findById(id);

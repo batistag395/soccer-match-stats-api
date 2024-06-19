@@ -2,9 +2,10 @@ package org.example.soccermatchstatsapi.controller;
 
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
-import org.example.soccermatchstatsapi.dto.TeamDto;
+import org.example.soccermatchstatsapi.dto.*;
 import org.example.soccermatchstatsapi.model.Team;
 import org.example.soccermatchstatsapi.service.TeamService;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -69,12 +70,13 @@ public class TeamController {
         }
     }
     @GetMapping("/listWithFilters")
-    public ResponseEntity<List<Team>> listTeamsWithFilters(
+    public ResponseEntity<TeamPageableDto> listTeamsWithFilters(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String state,
-            @RequestParam(required = false) Boolean isActive
+            @RequestParam(required = false) Boolean isActive,
+            Pageable pageable
         ){
-        List<Team> teamsReturned =  teamService.getTeamsByNameAndStateAndStatusActive(name, state, isActive);
+        TeamPageableDto teamsReturned =  teamService.getTeamsByNameAndStateAndStatusActive(name, state, isActive, pageable);
         return ResponseEntity.ok(teamsReturned);
     }
     @DeleteMapping("/delete/{id}")
@@ -82,6 +84,31 @@ public class TeamController {
         try {
             teamService.deleteTeam(id);
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+    @GetMapping("/teamStats/{id}")
+    public ResponseEntity<TeamStatsDto> TeamStats(@Valid @PathVariable long id){
+        try {
+            return ResponseEntity.ok(teamService.teamStats(id));
+        }catch (IllegalArgumentException e){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+    @GetMapping("/teamMatchHistory/{id}")
+    public ResponseEntity<List<TeamMatchHistoryDto>> teamMatchHistory(@Valid @PathVariable long id){
+        try {
+            return ResponseEntity.ok(teamService.teamMatchHistory(id));
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    @GetMapping("/teamMatchHistoryStats")
+    public ResponseEntity<TeamMatchHistoryStatsDto> teamMatchHistoryStats(@RequestParam long id_team_1, @RequestParam long id_team_2){
+        try {
+            return ResponseEntity.ok(teamService.findMatchHistoryBetweenTeams(id_team_1, id_team_2));
         }catch (IllegalArgumentException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }

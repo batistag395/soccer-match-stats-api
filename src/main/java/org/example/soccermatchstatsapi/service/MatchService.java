@@ -1,6 +1,8 @@
 package org.example.soccermatchstatsapi.service;
 
 import lombok.AllArgsConstructor;
+import org.example.soccermatchstatsapi.dto.MatchDto;
+import org.example.soccermatchstatsapi.dto.MatchPageableDto;
 import org.example.soccermatchstatsapi.interfaces.MatchInterface;
 import org.example.soccermatchstatsapi.model.Match;
 import org.example.soccermatchstatsapi.model.Team;
@@ -8,6 +10,8 @@ import org.example.soccermatchstatsapi.repository.MatchRepository;
 import org.example.soccermatchstatsapi.repository.StadiumRepository;
 import org.example.soccermatchstatsapi.repository.TeamRepository;
 import org.example.soccermatchstatsapi.specification.MatchSpecifications;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -221,14 +225,6 @@ public class MatchService implements MatchInterface {
             throw new IllegalArgumentException("Has game at this stadium on this date.");
         }
     }
-//    }private void verifyStadiumHasMatch(Match match){
-//        Optional<Match> matchOptional = matchRepository.findById(match.getId());
-//        boolean stadiumHasMatchInthisDate = matchOptional.stream()
-//                .anyMatch(dt -> dt.getStadium().equals(match.getStadium()) && dt.getMatchDate().toLocalDate().isEqual(match.getMatchDate().toLocalDate()));
-//        if(stadiumHasMatchInthisDate){
-//            throw new IllegalArgumentException("Has game at this stadium on this date.");
-//        }
-//    }
     private void stadiumExists(long id){
         boolean stadiumExists = stadiumRepository.existsById(id);
         if(!stadiumExists){
@@ -255,13 +251,33 @@ public class MatchService implements MatchInterface {
     }
 
     @Override
-    public List<Match> getMatchesWithFilter(String team, String stadium) {
+    public MatchPageableDto getMatchesWithFilter(String team, String stadium, Pageable pageable) {
         Specification<Match> matchSpecification = Specification.where(null);
         if(team != null) {
             matchSpecification = matchSpecification.and(MatchSpecifications.hasTeam(team));
         } if(stadium != null) {
             matchSpecification = matchSpecification.and(MatchSpecifications.hasStadium(stadium));
         }
-        return matchRepository.findAll(matchSpecification);
+        Page<Match> page = matchRepository.findAll(matchSpecification, pageable);
+
+        List<MatchDto> listMatch = page.map(this::mapDto).toList();
+
+        return MatchPageableDto.builder()
+                .totalPages(page.getTotalPages())
+                .totalElements(page.getTotalElements())
+                .content(listMatch)
+                .build();
+    }
+
+    private MatchDto mapDto(Match match){
+        return MatchDto.builder()
+                .id(match.getId())
+                .homeTeam(match.getHomeTeam())
+                .awayTeam(match.getAwayTeam())
+                .matchDate(match.getMatchDate())
+                .homeTeamScore(match.getHomeTeamScore())
+                .awayTeamScore(match.getAwayTeamScore())
+                .stadium(match.getStadium())
+                .build();
     }
 }
