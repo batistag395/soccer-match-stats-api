@@ -84,9 +84,10 @@ public class MatchController {
     public ResponseEntity<MatchPageableDto> getMatchByFilter(
             @RequestParam(required = false) String team,
             @RequestParam(required = false) String stadium,
+            @RequestParam(required = false) Boolean blowout,
             Pageable pageable
     ){
-        MatchPageableDto match = matchService.getMatchesWithFilter(team, stadium, pageable);
+        MatchPageableDto match = matchService.getMatchesWithFilter(team, stadium, blowout, pageable);
         return ResponseEntity.ok(match);
     }
 }
