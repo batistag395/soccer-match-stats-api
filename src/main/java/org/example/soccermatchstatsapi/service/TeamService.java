@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -210,6 +211,7 @@ public class TeamService implements TeamInterface {
             throw new IllegalArgumentException("Team not found.");
         }
     }
+    @Override
     public TeamMatchHistoryStatsDto findMatchHistoryBetweenTeams(long id_team1, long id_team2){
         Optional<Team> team1 = teamRepository.findById(id_team1);
         Optional<Team> team2 = teamRepository.findById(id_team2);
@@ -271,6 +273,44 @@ public class TeamService implements TeamInterface {
         }else {
             throw new IllegalArgumentException("Team not found.");
         }
+    }
+    public List<TeamMatchRankingDto> teamMatchRanking(){
+
+        List<Match> matchList = matchRepository.findAll();
+
+        List<TeamMatchRankingDto> matchRanking = teamRepository.findAll().stream().map(teamInMatch -> {
+            long win = matchList.stream().filter(teamWin -> (teamWin.getHomeTeam().equals(teamInMatch) && teamWin.getHomeTeamScore() > teamWin.getAwayTeamScore()) ||
+                    (teamWin.getAwayTeam().equals(teamInMatch) && teamWin.getAwayTeamScore() > teamWin.getHomeTeamScore())
+            ).count();
+            long loss = matchList.stream().filter(teamWin -> (teamWin.getHomeTeam().equals(teamInMatch) && teamWin.getHomeTeamScore() < teamWin.getAwayTeamScore()) ||
+                    (teamWin.getAwayTeam().equals(teamInMatch) && teamWin.getAwayTeamScore() < teamWin.getHomeTeamScore())
+            ).count();
+
+            long draw = matchList.stream().filter(teamDraw ->
+                    (teamDraw.getHomeTeam().equals(teamInMatch) || teamDraw.getAwayTeam().equals(teamInMatch)) &&
+                            (teamDraw.getHomeTeamScore() == teamDraw.getAwayTeamScore())).count();
+
+            long goals_scored = matchList.stream().filter(teamGoals -> teamGoals.getHomeTeam().equals(teamInMatch)).mapToInt(Match::getHomeTeamScore).sum() +
+                    matchList.stream().filter(teamGoals -> teamGoals.getAwayTeam().equals(teamInMatch)).mapToInt(Match::getAwayTeamScore).sum();
+
+            long points = ((win * 3) + draw);
+
+            return TeamMatchRankingDto.builder()
+                    .team(teamInMatch)
+                    .totalMatches((win + loss + draw))
+                    .win(win)
+                    .goals_scored(goals_scored)
+                    .points(points)
+                    .build();
+
+        }).toList();
+        return matchRanking.stream().filter(team ->
+                team.getTotalMatches() > 0 || team.getGoals_scored() > 0 || team.getWin() > 0 || team.getPoints() > 0)
+                .sorted(Comparator.comparingLong(TeamMatchRankingDto::getTotalMatches).reversed()
+                        .thenComparingLong(TeamMatchRankingDto::getWin).reversed()
+                        .thenComparingLong(TeamMatchRankingDto::getGoals_scored).reversed()
+                        .thenComparingLong(TeamMatchRankingDto::getPoints).reversed()
+                ).toList();
     }
 
     @Override

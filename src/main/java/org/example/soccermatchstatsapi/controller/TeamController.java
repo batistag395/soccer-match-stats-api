@@ -113,4 +113,8 @@ public class TeamController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
     }
+    @GetMapping("/matchRanking")
+    public ResponseEntity<List<TeamMatchRankingDto>> teamMatchRanking(){
+        return ResponseEntity.ok(teamService.teamMatchRanking());
+    }
 }

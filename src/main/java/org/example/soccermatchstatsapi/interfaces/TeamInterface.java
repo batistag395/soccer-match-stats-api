@@ -1,9 +1,6 @@
 package org.example.soccermatchstatsapi.interfaces;
 
-import org.example.soccermatchstatsapi.dto.TeamDto;
-import org.example.soccermatchstatsapi.dto.TeamMatchHistoryDto;
-import org.example.soccermatchstatsapi.dto.TeamPageableDto;
-import org.example.soccermatchstatsapi.dto.TeamStatsDto;
+import org.example.soccermatchstatsapi.dto.*;
 import org.example.soccermatchstatsapi.model.Team;
 import org.springframework.data.domain.Pageable;
 
@@ -18,4 +15,5 @@ public interface TeamInterface<T, L extends Number> {
     public TeamPageableDto getTeamsByNameAndStateAndStatusActive(String name, String state, Boolean isActive, Pageable pageable);
     public TeamStatsDto teamStats(long id);
     public List<TeamMatchHistoryDto> teamMatchHistory(long id);
+    public TeamMatchHistoryStatsDto findMatchHistoryBetweenTeams(long id_team1, long id_team2);
 }
