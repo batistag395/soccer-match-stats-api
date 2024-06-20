@@ -13,5 +13,5 @@ public interface MatchInterface {
     void updateMatch(long id, Match match);
     void deleteMatch(long id);
     Match getMatchById(long id);
-    MatchPageableDto getMatchesWithFilter(String team, String stadium, Boolean blowout, Pageable pageable);
+    MatchPageableDto getMatchesWithFilter(String team, String stadium, Boolean blowout, Boolean homeTeam, Boolean awayTeam, Pageable pageable);
 }

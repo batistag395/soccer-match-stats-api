@@ -16,6 +16,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -252,7 +253,7 @@ public class MatchService implements MatchInterface {
     }
 
     @Override
-    public MatchPageableDto getMatchesWithFilter(String team, String stadium, Boolean blowout, Pageable pageable) {
+    public MatchPageableDto getMatchesWithFilter(String team, String stadium, Boolean blowout, Boolean homeTeam, Boolean awayTeam, Pageable pageable) {
         Specification<Match> matchSpecification = Specification.where(null);
         if(team != null) {
             matchSpecification = matchSpecification.and(MatchSpecifications.hasTeam(team));
@@ -265,22 +266,19 @@ public class MatchService implements MatchInterface {
         List<MatchDto> listMatch = page.getContent().stream().map(this::mapDto).toList();
 
         if(blowout != null && blowout){
-            List<MatchDto> list = listMatch.stream().filter(matchDto -> Math.abs(matchDto.getHomeTeamScore() - matchDto.getAwayTeamScore()) >= 3)
+            listMatch = listMatch.stream().filter(matchDto -> Math.abs(matchDto.getHomeTeamScore() - matchDto.getAwayTeamScore()) >= 3)
                     .toList();
-            System.out.println("lista com filtro goleada" + Arrays.toString(list.toArray()));
-            System.out.println("Tamanho da lista com filtro goleada" + list.size());
-            return MatchPageableDto.builder()
-                    .totalPages(page.getTotalPages())
-                    .totalElements(list.size())
-                    .content(list)
-                    .build();
-        }else{
-            return MatchPageableDto.builder()
-                    .totalPages(page.getTotalPages())
-                    .totalElements(page.getTotalElements())
-                    .content(listMatch)
-                    .build();
         }
+        if(homeTeam != null && homeTeam && team != null){
+            listMatch = listMatch.stream().filter(homeTeamFilter -> homeTeamFilter.getHomeTeam().getName().equals(team)).toList();
+        }else if (awayTeam != null && awayTeam && team != null) {
+            listMatch = listMatch.stream().filter(awayTeamFilter -> awayTeamFilter.getAwayTeam().getName().equals(team)).toList();
+        }
+        return MatchPageableDto.builder()
+                .totalPages(page.getTotalPages())
+                .totalElements(page.getTotalElements())
+                .content(listMatch)
+                .build();
     }
 
     private MatchDto mapDto(Match match){
