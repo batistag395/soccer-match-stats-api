@@ -6,36 +6,38 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 @Data
 @Entity
+@Table(name = "`match`")
 public class Match {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @NotBlank
+    @NotNull
     @ManyToOne
     @JoinColumn(name = "home_team_id", nullable = false)
     private Team homeTeam;
 
-    @NotBlank
+    @NotNull
     @ManyToOne
     @JoinColumn(name = "away_team_id", nullable = false)
     private Team awayTeam;
 
     @NotNull(message = "The match date is required")
     @PastOrPresent(message = "The date must be played at the past or present.")
-    private OffsetDateTime matchDate;
+    private LocalDateTime matchDate;
 
     @NotNull
-    private int homeTeamScore;
+    private Integer homeTeamScore;
 
     @NotNull
-    private int awayTeamScore;
+    private Integer awayTeamScore;
 
-    @NotBlank
+    @NotNull
     @ManyToOne
     @JoinColumn(name = "stadium_id", nullable = false)
     private Stadium stadium;

@@ -1,23 +1,21 @@
-package org.example.soccermatchstatsapi.model;
-
+package org.example.soccermatchstatsapi.dto;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
+import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDate;
 
 @Data
-@Entity
-public class Team {
+@Builder
+public class TeamDto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @NotBlank(message = "The name field is required.")
     @Size(max = 100, message = "The name field required a max length of 100.")
     private String name;
 
-    @NotBlank(message = "The state field is required.")
     @Size(min = 2, max = 2, message = "The state field requires a length of 2.")
     private String state;
 
