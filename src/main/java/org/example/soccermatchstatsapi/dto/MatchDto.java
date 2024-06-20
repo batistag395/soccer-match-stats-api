@@ -8,6 +8,7 @@ import lombok.Data;
 import org.example.soccermatchstatsapi.model.Stadium;
 import org.example.soccermatchstatsapi.model.Team;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 @Data
@@ -17,7 +18,7 @@ public class MatchDto {
     private long id;
     private Team homeTeam;
     private Team awayTeam;
-    private OffsetDateTime matchDate;
+    private LocalDateTime matchDate;
     private Integer homeTeamScore;
     private Integer awayTeamScore;
     private Stadium stadium;

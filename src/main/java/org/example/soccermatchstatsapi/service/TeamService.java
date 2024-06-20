@@ -81,7 +81,7 @@ public class TeamService implements TeamInterface {
             }
             if(team.getCreationDate() != null && !team.getCreationDate().isAfter(LocalDate.now())){
                 List<Match> matchFound = matchRepository.findById(updatedTeam.getId()).stream()
-                        .filter(creationData -> creationData.getMatchDate().isBefore(OffsetDateTime.from(team.getCreationDate())))
+                        .filter(creationData -> creationData.getMatchDate().toLocalDate().isBefore(team.getCreationDate()))
                         .toList();
                 if(!matchFound.isEmpty() && team.getCreationDate().isAfter(LocalDate.now())){
                     throw new IllegalArgumentException("Creation date is incorrect, because is after a match date of the team..");
@@ -115,11 +115,9 @@ public class TeamService implements TeamInterface {
     public Team getTeamById(long id) {
         Optional<Team> optionalTeam = teamRepository.findById(id);
         if (optionalTeam.isPresent()) {
-            if(optionalTeam.get().isActive()){
-                return optionalTeam.get();
-            }
+            return optionalTeam.get();
         }
-        throw new EntityNotFoundException("the team with id " + id + " was not found");
+        throw new IllegalArgumentException("the team with id " + id + " was not found");
     }
 
     @Override
@@ -145,8 +143,9 @@ public class TeamService implements TeamInterface {
         if (isActive != null) {
             teamFilterSpecifications = teamFilterSpecifications.and(TeamSpecifications.isActive(isActive));
         }
-
+        System.out.println("filters: "+teamFilterSpecifications);
         Page<Team> page = teamRepository.findAll(teamFilterSpecifications, pageable);
+
         List<TeamDto> listTeam = page.map(this::mapDto).toList();
 
         return TeamPageableDto.builder()

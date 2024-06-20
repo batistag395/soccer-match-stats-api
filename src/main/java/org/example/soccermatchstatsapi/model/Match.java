@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 @Data
@@ -28,7 +29,7 @@ public class Match {
 
     @NotNull(message = "The match date is required")
     @PastOrPresent(message = "The date must be played at the past or present.")
-    private OffsetDateTime matchDate;
+    private LocalDateTime matchDate;
 
     @NotNull
     private Integer homeTeamScore;

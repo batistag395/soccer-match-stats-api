@@ -1,6 +1,7 @@
 package org.example.soccermatchstatsapi.service;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.soccermatchstatsapi.dto.MatchDto;
 import org.example.soccermatchstatsapi.dto.MatchPageableDto;
 import org.example.soccermatchstatsapi.interfaces.MatchInterface;
@@ -15,12 +16,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class MatchService implements MatchInterface {
@@ -29,6 +29,7 @@ public class MatchService implements MatchInterface {
     private StadiumRepository stadiumRepository;
     @Override
     public void createMatch(Match match) {
+        log.info(String.valueOf(match.getMatchDate()));
         if(
                 match.getHomeTeam() != null &&
                 match.getAwayTeam() != null &&
@@ -40,7 +41,7 @@ public class MatchService implements MatchInterface {
             if(match.getHomeTeam().equals(match.getAwayTeam())){
                 throw new IllegalArgumentException("away and home team cannot be the same.");
             }
-            if(match.getMatchDate().isAfter(OffsetDateTime.now())){
+            if(match.getMatchDate().isAfter(LocalDateTime.now().now())){
                 throw new IllegalArgumentException("Date cannot be beyond the current date");
             }
             if(match.getHomeTeamScore() < 0 || match.getAwayTeamScore() < 0){
@@ -54,12 +55,12 @@ public class MatchService implements MatchInterface {
                 teamIsActive(match.getAwayTeam().getId());
                 stadiumExists(match.getStadium().getId());
                 matchDateIsBeforeTeamCreationDateWhenCreate(match);
-                matchDateHasConflict(match);
+                matchDateHasConflictWhenCreate(match);
                 if(match.getMatchDate() != null && match.getStadium() != null){
                     verifyStadiumHasMatch(match);
                 }
             }catch (IllegalArgumentException e){
-                throw e;
+                throw new IllegalArgumentException(e.getMessage());
             }
             matchRepository.save(match);
 
@@ -123,12 +124,12 @@ public class MatchService implements MatchInterface {
                 throw new IllegalArgumentException("Scores cannot be negative.");
             }
 
-            if(match.getMatchDate() != null && match.getMatchDate().isAfter(OffsetDateTime.now())){
+            if(match.getMatchDate() != null && match.getMatchDate().isAfter(LocalDateTime.now())){
                 throw new IllegalArgumentException("Match dates cannot be after current day.");
             }
             if(match.getMatchDate() != null){
                 try {
-                    matchDateHasConflict(match);
+                    matchDateHasConflictWhenUpdate(match);
                     matchDateIsBeforeTeamCreationDateWhenUpdate(match);
 
                 }catch (IllegalArgumentException e){
@@ -167,15 +168,31 @@ public class MatchService implements MatchInterface {
             throw new IllegalArgumentException("Match date cannot be before team creation date.");
         }
     }
-    private void matchDateHasConflict(Match match){
+    private void matchDateHasConflictWhenCreate(Match match){
+        log.info(String.valueOf(match.getMatchDate()));
+        boolean someTeamPlayedTheMatch = matchRepository.findAll().stream()
+                .filter(mt ->
+                        mt.getHomeTeam().equals(match.getHomeTeam()) || mt.getAwayTeam().equals(match.getHomeTeam()) ||
+                        mt.getHomeTeam().equals(match.getAwayTeam()) || mt.getAwayTeam().equals(match.getAwayTeam()))
+                        .anyMatch( mt -> {
+                            LocalDateTime matchDate = match.getMatchDate();
+                            LocalDateTime mtDate = mt.getMatchDate();
+                            return mtDate.isAfter(matchDate.minusHours(48)) && mtDate.isBefore(matchDate.plusHours(48));
+                        });
+
+        log.info("match has conflict{}", someTeamPlayedTheMatch);
+        if(someTeamPlayedTheMatch){
+            log.info("throws exception");
+            throw new IllegalArgumentException("Theres hour conflict at the new match date.");
+        }
+    }
+    private void matchDateHasConflictWhenUpdate(Match match){
         Team homeTeam = match.getHomeTeam();
         Team awayTeam = match.getAwayTeam();
         Optional<Match> dbMatch = matchRepository.findById(match.getId());
         if(dbMatch.isPresent()){
             if (homeTeam == null) {
                 homeTeam = dbMatch.get().getHomeTeam();
-            } else {
-                homeTeam = match.getHomeTeam();
             }
             if (awayTeam == null) {
                 awayTeam = dbMatch.get().getAwayTeam();
@@ -187,13 +204,18 @@ public class MatchService implements MatchInterface {
 
         boolean someTeamPlayedTheMatch = matchRepository.findAll().stream()
                 .filter(dt -> dt.getId() != match.getId())
-                .anyMatch(m ->
-                        (m.getHomeTeam().equals(finalHomeTeam) || m.getAwayTeam().equals(finalHomeTeam) ||
-                                m.getHomeTeam().equals(finalAwayTeam) || m.getAwayTeam().equals(finalAwayTeam)) &&
-                                m.getMatchDate().isAfter(match.getMatchDate().minusHours(48)) &&
-                                m.getMatchDate().isBefore(match.getMatchDate().plusHours(48))
-                );
+                .filter(mt ->
+                        mt.getHomeTeam().equals(finalHomeTeam) || mt.getAwayTeam().equals(finalHomeTeam) ||
+                                mt.getHomeTeam().equals(finalHomeTeam) || mt.getAwayTeam().equals(finalHomeTeam))
+                .anyMatch( mt -> {
+                    LocalDateTime matchDate = match.getMatchDate();
+                    LocalDateTime mtDate = mt.getMatchDate();
+                    return mtDate.isAfter(matchDate.minusHours(48)) && mtDate.isBefore(matchDate.plusHours(48));
+                });
+
+        log.info("match has conflict{}", someTeamPlayedTheMatch);
         if(someTeamPlayedTheMatch){
+            log.info("throws exception");
             throw new IllegalArgumentException("Theres hour conflict at the new match date.");
         }
     }
